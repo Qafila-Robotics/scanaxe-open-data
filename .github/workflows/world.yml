@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: pip install osmium
       - name: Download ${{ matrix.path }} from Geofabrik
-        run: curl -sSfL -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" -o /tmp/in.osm.pbf "https://download.geofabrik.de/${{ matrix.path }}-latest.osm.pbf" && ls -lh /tmp/in.osm.pbf
+        run: curl -sSfL --retry 6 --retry-delay 30 --retry-all-errors -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" -o /tmp/in.osm.pbf "https://download.geofabrik.de/${{ matrix.path }}-latest.osm.pbf" && ls -lh /tmp/in.osm.pbf
       - name: Extract businesses
         run: |
           mkdir -p out
