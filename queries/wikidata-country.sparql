@@ -1,5 +1,8 @@
 # Businesses in one country (__CC__) with an official website, one row per item, in the column layout of
 # ScanAxe `companies:import --format=wikidata`. Wikidata, CC0 1.0. No people.
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 SELECT ?item (SAMPLE(?en) AS ?name_en) (SAMPLE(?ar) AS ?name_ar) (SAMPLE(?iso) AS ?country)
        (SAMPLE(?site) AS ?website) (SAMPLE(?industryEn) AS ?industry) (MAX(?staff) AS ?employees)
 WHERE {

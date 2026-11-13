@@ -20,12 +20,11 @@ jobs:
           for cc in ${{ inputs.countries }}; do
             sed "s/__CC__/$cc/" queries/wikidata-executives.sparql > /tmp/q.sparql
             ok=0
-            for wait in 0 30 90; do
-              sleep $wait
-              code=$(curl -sS --max-time 120 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
-                -H "Accept: text/csv" --data-urlencode query@/tmp/q.sparql https://query.wikidata.org/sparql -o /tmp/$cc.csv -w "%{http_code}")
+            for ep in https://qlever.cs.uni-freiburg.de/api/wikidata https://query.wikidata.org/sparql https://query.wikidata.org/sparql; do wait=30;
+              code=$(curl -sS --max-time 600 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
+                -H "Accept: text/csv" --data-urlencode query@/tmp/q.sparql "$ep" -o /tmp/$cc.csv -w "%{http_code}")
               [ "$code" = 200 ] && ok=1 && break
-              echo "$cc: HTTP $code"
+              echo "$cc: HTTP $code from $ep"; sleep $wait
             done
             if [ $ok = 1 ]; then
               if [ -s $out ]; then tail -n +2 /tmp/$cc.csv >> $out; else cp /tmp/$cc.csv $out; fi
