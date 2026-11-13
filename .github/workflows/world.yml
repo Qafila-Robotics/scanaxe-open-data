@@ -1,0 +1,94 @@
+name: world
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: ISO codes to run (empty = every row of countries.tsv)
+        default: ""
+permissions:
+  contents: write
+concurrency: world
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          only = set(os.environ.get("ONLY", "").split())
+          rows = [l.split("\t") for l in open("countries.tsv").read().splitlines() if l]
+          rows = [{"iso": a, "path": b} for a, b in rows if not only or a in only]
+          print("matrix=" + json.dumps({"include": rows}))
+          PY
+        env:
+          ONLY: ${{ inputs.only }}
+  osm:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install osmium
+      - name: Download ${{ matrix.path }} from Geofabrik
+        run: curl -sSfL -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" -o /tmp/in.osm.pbf "https://download.geofabrik.de/${{ matrix.path }}-latest.osm.pbf" && ls -lh /tmp/in.osm.pbf
+      - name: Extract businesses
+        run: |
+          mkdir -p out
+          python3 -I scripts/osm_extract.py /tmp/in.osm.pbf ${{ matrix.iso }} out/${{ matrix.iso }}.tsv
+          rm /tmp/in.osm.pbf
+          gzip -9 out/${{ matrix.iso }}.tsv && ls -lh out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: osm-${{ matrix.iso }}
+          path: out/${{ matrix.iso }}.tsv.gz
+          retention-days: 7
+  wikidata:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: One query per country
+        run: |
+          mkdir -p out
+          for cc in $(cut -f1 countries.tsv) QA AE SA KW BH OM EG JO LB MA TN DZ; do
+            sed "s/__CC__/$cc/" queries/wikidata-country.sparql > /tmp/q.sparql
+            if curl -sS --fail --max-time 120 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
+                -H "Accept: text/csv" --data-urlencode query@/tmp/q.sparql https://query.wikidata.org/sparql -o /tmp/$cc.csv; then
+              if [ -s out/companies.csv ]; then tail -n +2 /tmp/$cc.csv >> out/companies.csv; else cp /tmp/$cc.csv out/companies.csv; fi
+              echo "$cc: $(($(wc -l < /tmp/$cc.csv)-1)) rows"
+            else echo "$cc: failed"; fi
+            sleep 5
+          done
+          gzip -9 out/companies.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wikidata
+          path: out/companies.csv.gz
+          retention-days: 7
+  commit:
+    needs: [osm, wikidata]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+      - name: Commit
+        run: |
+          mkdir -p data/world data/wikidata
+          for f in art/osm-*/*.tsv.gz; do [ -e "$f" ] && cp "$f" data/world/; done
+          [ -e art/wikidata/companies.csv.gz ] && cp art/wikidata/companies.csv.gz data/wikidata/world-companies.csv.gz
+          ls -lh data/world data/wikidata
+          git config user.name "scanaxe-data"; git config user.email "data@users.noreply.github.com"
+          git pull -q --rebase || true
+          git add data && git commit -m "World data refresh $(date -u +%F)" && git push || echo "nothing new"
