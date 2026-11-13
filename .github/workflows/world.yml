@@ -42,7 +42,7 @@ jobs:
       - name: Extract businesses
         run: |
           mkdir -p out
-          mode=${{ matrix.iso }}; [ "$mode" = GCC ] && mode=AUTO
+          mode=${{ matrix.iso }}; case "$mode" in GCC|MY|DO|HK|IE) mode=AUTO;; esac
           pip install reverse_geocoder
           python3 scripts/osm_extract.py /tmp/in.osm.pbf $mode out/${{ matrix.iso }}.tsv
           rm /tmp/in.osm.pbf
