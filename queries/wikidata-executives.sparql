@@ -1,0 +1,16 @@
+# Public executives (CEO P169, founder P112, chairperson P488) of businesses in one country (__CC__) that have an
+# official website. Wikidata, CC0 1.0. Living people only. Only the name, the role, the company and a LinkedIn
+# profile id when Wikidata has one (P6634). For local tests of ScanAxe; never for cold outreach without a lawful basis.
+SELECT ?company ?company_name ?website ?country ?person ?person_name ?role ?linkedin WHERE {
+  VALUES ?country { "__CC__" }
+  VALUES ?class { wd:Q4830453 wd:Q783794 wd:Q891723 wd:Q6881511 wd:Q167037 wd:Q1058914 wd:Q15911314 wd:Q2085381 wd:Q22687 wd:Q210167 wd:Q1631111 wd:Q507619 }
+  VALUES (?prop ?role) { (wdt:P169 "Chief Executive Officer") (wdt:P112 "Founder") (wdt:P488 "Chairman") }
+  ?land wdt:P297 ?country .
+  ?company wdt:P17 ?land ; wdt:P31 ?class ; wdt:P856 ?website ; ?prop ?person .
+  FILTER NOT EXISTS { ?company wdt:P576 [] }
+  ?person wdt:P31 wd:Q5 .
+  FILTER NOT EXISTS { ?person wdt:P570 [] }
+  OPTIONAL { ?person wdt:P6634 ?linkedin }
+  ?company rdfs:label ?company_name . FILTER(LANG(?company_name) = "en")
+  ?person rdfs:label ?person_name . FILTER(LANG(?person_name) = "en")
+}

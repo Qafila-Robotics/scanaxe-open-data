@@ -1,0 +1,41 @@
+name: people
+on:
+  workflow_dispatch:
+    inputs:
+      countries:
+        description: ISO codes, space separated
+        default: "QA AE SA KW BH OM EG JO LB MA TN DZ IQ US GB DE FR IN"
+permissions:
+  contents: write
+concurrency: people
+jobs:
+  people:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wikidata public executives, one country at a time (CC0)
+        run: |
+          mkdir -p data/people; out=data/people/wikidata-executives.csv; rm -f $out
+          for cc in ${{ inputs.countries }}; do
+            sed "s/__CC__/$cc/" queries/wikidata-executives.sparql > /tmp/q.sparql
+            ok=0
+            for wait in 0 30 90; do
+              sleep $wait
+              code=$(curl -sS --max-time 120 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
+                -H "Accept: text/csv" --data-urlencode query@/tmp/q.sparql https://query.wikidata.org/sparql -o /tmp/$cc.csv -w "%{http_code}")
+              [ "$code" = 200 ] && ok=1 && break
+              echo "$cc: HTTP $code"
+            done
+            if [ $ok = 1 ]; then
+              if [ -s $out ]; then tail -n +2 /tmp/$cc.csv >> $out; else cp /tmp/$cc.csv $out; fi
+              echo "$cc: $(($(wc -l < /tmp/$cc.csv)-1)) rows"
+            else echo "$cc: failed"; fi
+            sleep 15
+          done
+          python3 scripts/to_connections.py $out data/people/Connections-wikidata-executives.csv
+      - name: Commit
+        run: |
+          git config user.name "scanaxe-data"; git config user.email "data@users.noreply.github.com"
+          git pull -q --rebase || true
+          git add data/people && git commit -m "Wikidata executives $(date -u +%F)" && git push || echo "nothing new"

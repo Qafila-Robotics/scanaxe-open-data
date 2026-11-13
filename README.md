@@ -1,7 +1,9 @@
 # ScanAxe open data
 
-Open company data for testing ScanAxe in the Gulf and MENA. Nothing here is personal data. There are no
-phones, emails, addresses, coordinates or people.
+Open company data for testing ScanAxe. The company files hold no phones, emails, addresses, coordinates or
+people. `data/people/` is the one exception: the names and roles of living public executives (CEO, founder,
+chair) of businesses, as published on Wikidata (CC0), for local tests only. They are not your connections:
+import them with a basis other than `connected`; ScanAxe's strict compliance default blocks cold outreach.
 
 | File | Source | Licence |
 |---|---|---|
