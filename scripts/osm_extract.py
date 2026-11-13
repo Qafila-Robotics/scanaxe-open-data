@@ -1,6 +1,8 @@
 """Extract businesses from an OpenStreetMap .pbf into the tab-separated layout of the Overpass export.
 
-Usage: python osm_extract.py <file.osm.pbf> <ISO> <out.tsv>
+Usage: python osm_extract.py <file.osm.pbf> <ISO|AUTO> <out.tsv>
+With AUTO (a file that covers several countries, such as Geofabrik's GCC states), each place's country is
+taken from its location with the offline reverse_geocoder package; the location itself is never written.
 Only kind tags, names and websites are written: no phones, emails, addresses or coordinates.
 Data © OpenStreetMap contributors, ODbL 1.0.
 """
@@ -45,35 +47,53 @@ def clean(v) -> str:
 
 
 class Handler(osmium.SimpleHandler):
-    def __init__(self, out):
+    def __init__(self, auto):
         super().__init__()
-        self.out, self.count = out, 0
+        self.auto, self.rows, self.points = auto, [], []
 
-    def write(self, kind, tags):
-        if keep(tags):
-            self.out.write("\t".join([kind, ""] + [clean(tags.get(c)) for c in COLS]) + "\n")
-            self.count += 1
+    def write(self, kind, tags, point):
+        if keep(tags) and (point or not self.auto):
+            self.rows.append("\t".join([kind, "%s"] + [clean(tags.get(c)) for c in COLS]))
+            self.points.append(point)
 
     def node(self, n):
         if len(n.tags):
-            self.write("node", n.tags)
+            self.write("node", n.tags, (n.location.lat, n.location.lon) if self.auto and n.location.valid() else None)
 
     def way(self, w):
         if len(w.tags):
-            self.write("way", w.tags)
+            point = None
+            if self.auto:
+                for nd in w.nodes:
+                    if nd.location.valid():
+                        point = (nd.location.lat, nd.location.lon)
+                        break
+            self.write("way", w.tags, point)
 
     def relation(self, r):
-        if len(r.tags):
-            self.write("relation", r.tags)
+        if len(r.tags) and not self.auto:
+            self.write("relation", r.tags, None)
 
 
 def main(pbf, iso, path):
+    auto = iso == "AUTO"
+    h = Handler(auto)
+    h.apply_file(pbf, locations=auto)
+    groups = {}
+    if auto:
+        import reverse_geocoder
+        found = reverse_geocoder.search(h.points, mode=1) if h.points else []
+        for row, hit in zip(h.rows, found):
+            groups.setdefault(hit["cc"], []).append(row)
+    else:
+        groups[iso] = h.rows
     with open(path, "w", encoding="utf-8") as out:
         out.write("\t".join(["@type", "ISO3166-1"] + COLS) + "\n")
-        out.write("\t".join(["area", iso] + [""] * len(COLS)) + "\n")
-        h = Handler(out)
-        h.apply_file(pbf)
-    print(f"{iso}: {h.count} places")
+        for cc, rows in sorted(groups.items()):
+            out.write("\t".join(["area", cc] + [""] * len(COLS)) + "\n")
+            for row in rows:
+                out.write(row.replace("%s", "", 1) + "\n")
+            print(f"{cc}: {len(rows)} places")
 
 
 if __name__ == "__main__":

@@ -42,7 +42,9 @@ jobs:
       - name: Extract businesses
         run: |
           mkdir -p out
-          python3 scripts/osm_extract.py /tmp/in.osm.pbf ${{ matrix.iso }} out/${{ matrix.iso }}.tsv
+          mode=${{ matrix.iso }}; [ "$mode" = GCC ] && mode=AUTO
+          pip install reverse_geocoder
+          python3 scripts/osm_extract.py /tmp/in.osm.pbf $mode out/${{ matrix.iso }}.tsv
           rm /tmp/in.osm.pbf
           gzip -9 out/${{ matrix.iso }}.tsv && ls -lh out
       - uses: actions/upload-artifact@v4
@@ -59,7 +61,7 @@ jobs:
       - name: One query per country
         run: |
           mkdir -p out
-          for cc in $(cut -f1 countries.tsv) QA AE SA KW BH OM EG JO LB MA TN DZ; do
+          for cc in QA AE SA KW BH OM $(cut -f1 countries.tsv | grep -v GCC); do
             sed "s/__CC__/$cc/" queries/wikidata-country.sparql > /tmp/q.sparql
             ok=0
             for wait in 0 30 90 180; do
