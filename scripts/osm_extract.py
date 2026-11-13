@@ -11,7 +11,7 @@ import osmium
 
 COLS = ["brand:wikidata", "brand", "operator", "name", "website", "contact:website", "brand:website",
         "amenity", "shop", "leisure", "tourism", "office", "healthcare", "craft", "industrial"]
-AMENITY = re.compile(r"^(restaurant|fast_food|cafe|food_court|ice_cream|bar|pub|clinic|hospital|dentist|doctors|"
+AMENITY = re.compile(r"^(restaurant|fast_food|cafe|food_court|ice_cream|bar|pub|clinic|hospital|"
                      r"pharmacy|school|college|university|kindergarten|bank|car_rental|fuel)$")
 LEISURE = re.compile(r"^(fitness_centre|sports_centre|sports_hall|stadium|water_park|ice_rink|bowling_alley|"
                      r"amusement_arcade|trampoline_park)$")
@@ -20,17 +20,22 @@ NAMED = ("brand", "operator", "website", "contact:website")
 WEB = ("website", "contact:website", "brand")
 
 
+PERSON = re.compile(r"^\s*(dr\.?|د\.|دكتور|prof\.?)\s", re.I)
+
+
 def keep(t) -> bool:
+    if PERSON.match(t.get("name") or ""):
+        return False
     has = lambda keys: any(t.get(k) for k in keys)
     if t.get("amenity") and AMENITY.match(t.get("amenity")):
         return has(NAMED)
-    if t.get("shop") or t.get("healthcare"):
+    if t.get("shop"):
         return has(NAMED)
     if t.get("leisure") and LEISURE.match(t.get("leisure")):
         return has(NAMED)
     if t.get("tourism") and TOURISM.match(t.get("tourism")):
         return has(NAMED)
-    if t.get("office") or t.get("craft") or t.get("industrial"):
+    if t.get("office") or t.get("industrial"):
         return has(WEB)
     return False
 
