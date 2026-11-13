@@ -1,0 +1,47 @@
+name: fetch
+on:
+  workflow_dispatch:
+    inputs:
+      countries:
+        description: ISO codes, space separated
+        default: "QA AE SA KW BH OM EG JO LB MA TN DZ"
+permissions:
+  contents: write
+concurrency: fetch
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: OpenStreetMap, one country at a time (fair use of the public Overpass API)
+        run: |
+          mkdir -p data/osm
+          for cc in ${{ inputs.countries }}; do
+            sed "s/__CC__/$cc/" queries/osm-country.overpassql > /tmp/q.overpassql
+            for ep in https://overpass-api.de/api/interpreter https://overpass.kumi.systems/api/interpreter; do
+              if curl -sS --fail --max-time 1800 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
+                   -o /tmp/$cc.tsv --data-urlencode data@/tmp/q.overpassql "$ep" && head -1 /tmp/$cc.tsv | grep -q '^@type'; then
+                mv /tmp/$cc.tsv data/osm/$cc.tsv; echo "$cc: $(($(wc -l < data/osm/$cc.tsv)-1)) rows from $ep"; break
+              fi
+              echo "$cc: $ep failed, trying next"; sleep 30
+            done
+            sleep 60
+          done
+      - name: Wikidata companies (CC0)
+        run: |
+          mkdir -p data/wikidata
+          curl -sS --fail --max-time 300 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
+            -H "Accept: text/csv" --data-urlencode query@queries/wikidata-companies.sparql \
+            https://query.wikidata.org/sparql -o data/wikidata/companies.csv || echo "wikidata failed"
+          wc -l data/wikidata/companies.csv || true
+      - name: Combine OSM files into one import file
+        run: |
+          f=(data/osm/*.tsv); [ -e "${f[0]}" ] || exit 0
+          head -1 "${f[0]}" > data/osm-mena.tsv
+          for x in "${f[@]}"; do tail -n +2 "$x" >> data/osm-mena.tsv; done
+          wc -l data/osm-mena.tsv
+      - name: Commit
+        run: |
+          git config user.name "scanaxe-data"; git config user.email "data@users.noreply.github.com"
+          git add data && git commit -m "Data refresh $(date -u +%F)" && git push || echo "nothing new"
