@@ -64,8 +64,8 @@ jobs:
           for cc in QA AE SA KW BH OM $(cut -f1 countries.tsv | grep -v GCC); do
             sed "s/__CC__/$cc/" queries/wikidata-country.sparql > /tmp/q.sparql
             ok=0
-            for ep in https://qlever.cs.uni-freiburg.de/api/wikidata https://query.wikidata.org/sparql https://query.wikidata.org/sparql; do wait=30;
-              code=$(curl -sS --max-time 600 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
+            for ep in https://qlever.dev/api/wikidata https://query.wikidata.org/sparql https://query.wikidata.org/sparql; do wait=30;
+              code=$(curl -sSL --max-time 600 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
                 -H "Accept: text/csv" --data-urlencode query@/tmp/q.sparql "$ep" -o /tmp/$cc.csv -w "%{http_code}")
               [ "$code" = 200 ] && ok=1 && break
               echo "$cc: HTTP $code from $ep"; sleep $wait
