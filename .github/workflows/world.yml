@@ -42,7 +42,7 @@ jobs:
       - name: Extract businesses
         run: |
           mkdir -p out
-          python3 -I scripts/osm_extract.py /tmp/in.osm.pbf ${{ matrix.iso }} out/${{ matrix.iso }}.tsv
+          python3 scripts/osm_extract.py /tmp/in.osm.pbf ${{ matrix.iso }} out/${{ matrix.iso }}.tsv
           rm /tmp/in.osm.pbf
           gzip -9 out/${{ matrix.iso }}.tsv && ls -lh out
       - uses: actions/upload-artifact@v4
@@ -61,12 +61,19 @@ jobs:
           mkdir -p out
           for cc in $(cut -f1 countries.tsv) QA AE SA KW BH OM EG JO LB MA TN DZ; do
             sed "s/__CC__/$cc/" queries/wikidata-country.sparql > /tmp/q.sparql
-            if curl -sS --fail --max-time 120 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
-                -H "Accept: text/csv" --data-urlencode query@/tmp/q.sparql https://query.wikidata.org/sparql -o /tmp/$cc.csv; then
+            ok=0
+            for wait in 0 30 90 180; do
+              sleep $wait
+              code=$(curl -sS --max-time 120 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
+                -H "Accept: text/csv" --data-urlencode query@/tmp/q.sparql https://query.wikidata.org/sparql -o /tmp/$cc.csv -w "%{http_code}")
+              [ "$code" = 200 ] && ok=1 && break
+              echo "$cc: HTTP $code, waiting"
+            done
+            if [ $ok = 1 ]; then
               if [ -s out/companies.csv ]; then tail -n +2 /tmp/$cc.csv >> out/companies.csv; else cp /tmp/$cc.csv out/companies.csv; fi
               echo "$cc: $(($(wc -l < /tmp/$cc.csv)-1)) rows"
             else echo "$cc: failed"; fi
-            sleep 5
+            sleep 20
           done
           gzip -9 out/companies.csv
       - uses: actions/upload-artifact@v4
