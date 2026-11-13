@@ -1,11 +1,15 @@
-# Businesses in one country (__CC__) with an official website. Wikidata, CC0 1.0. No people.
-SELECT ?item ?label_en ?label_ar ?country_iso ?website ?industry ?employees WHERE {
-  VALUES ?country_iso { "__CC__" }
-  VALUES ?kind { wd:Q4830453 wd:Q783794 wd:Q891723 wd:Q6881511 wd:Q167037 wd:Q1058914 wd:Q15911314 wd:Q2085381 }
-  ?country wdt:P297 ?country_iso .
-  ?item wdt:P31 ?kind ; wdt:P17 ?country ; wdt:P856 ?website .
-  OPTIONAL { ?item rdfs:label ?label_en FILTER(LANG(?label_en) = "en") }
-  OPTIONAL { ?item rdfs:label ?label_ar FILTER(LANG(?label_ar) = "ar") }
-  OPTIONAL { ?item wdt:P452 ?ind . ?ind rdfs:label ?industry FILTER(LANG(?industry) = "en") }
-  OPTIONAL { ?item wdt:P1128 ?employees }
+# Businesses in one country (__CC__) with an official website, one row per item, in the column layout of
+# ScanAxe `companies:import --format=wikidata`. Wikidata, CC0 1.0. No people.
+SELECT ?item (SAMPLE(?en) AS ?name_en) (SAMPLE(?ar) AS ?name_ar) (SAMPLE(?iso) AS ?country)
+       (SAMPLE(?site) AS ?website) (SAMPLE(?industryEn) AS ?industry) (MAX(?staff) AS ?employees)
+WHERE {
+  VALUES ?iso { "__CC__" }
+  VALUES ?class { wd:Q4830453 wd:Q783794 wd:Q891723 wd:Q6881511 wd:Q167037 wd:Q1058914 wd:Q15911314 wd:Q2085381 wd:Q22687 wd:Q210167 wd:Q1631111 wd:Q507619 }
+  ?land wdt:P297 ?iso .
+  ?item wdt:P17 ?land ; wdt:P31 ?class ; wdt:P856 ?site .
+  OPTIONAL { ?item rdfs:label ?en . FILTER(LANG(?en) = "en") }
+  OPTIONAL { ?item rdfs:label ?ar . FILTER(LANG(?ar) = "ar") }
+  OPTIONAL { ?item wdt:P452 ?sector . ?sector rdfs:label ?industryEn . FILTER(LANG(?industryEn) = "en") }
+  OPTIONAL { ?item wdt:P1128 ?staff }
 }
+GROUP BY ?item

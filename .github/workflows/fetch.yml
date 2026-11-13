@@ -28,13 +28,19 @@ jobs:
             done
             sleep 60
           done
-      - name: Wikidata companies (CC0)
+      - name: Wikidata companies (CC0), one country at a time
         run: |
           mkdir -p data/wikidata
-          curl -sS --fail --max-time 300 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
-            -H "Accept: text/csv" --data-urlencode query@queries/wikidata-companies.sparql \
-            https://query.wikidata.org/sparql -o data/wikidata/companies.csv || echo "wikidata failed"
-          wc -l data/wikidata/companies.csv || true
+          rm -f data/wikidata/companies.csv
+          for cc in ${{ inputs.countries }}; do
+            sed "s/__CC__/$cc/" queries/wikidata-country.sparql > /tmp/q.sparql
+            if curl -sS --fail --max-time 120 -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" \
+                -H "Accept: text/csv" --data-urlencode query@/tmp/q.sparql https://query.wikidata.org/sparql -o /tmp/$cc.csv; then
+              if [ -s data/wikidata/companies.csv ]; then tail -n +2 /tmp/$cc.csv >> data/wikidata/companies.csv; else cp /tmp/$cc.csv data/wikidata/companies.csv; fi
+              echo "$cc: $(($(wc -l < /tmp/$cc.csv)-1)) wikidata rows"
+            else echo "$cc: wikidata failed"; fi
+            sleep 5
+          done
       - name: Combine OSM files into one import file
         run: |
           f=(data/osm/*.tsv); [ -e "${f[0]}" ] || exit 0
