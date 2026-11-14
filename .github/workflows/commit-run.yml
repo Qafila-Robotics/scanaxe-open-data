@@ -1,0 +1,35 @@
+name: commit-run
+# Commits the data files a finished world run left as artifacts (when its own commit step lost a push race).
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "World run id"
+        required: true
+permissions:
+  contents: write
+  actions: read
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Commit
+        run: |
+          mkdir -p data/world data/wikidata
+          for f in art/osm-*/*.tsv.gz; do [ -e "$f" ] && cp "$f" data/world/; done
+          [ -e art/wikidata/companies.csv.gz ] && cp art/wikidata/companies.csv.gz data/wikidata/world-companies.csv.gz
+          ls -lh data/world data/wikidata
+          git config user.name "scanaxe-data"; git config user.email "data@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -q -m "World data refresh $(date -u +%F)"
+          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push origin HEAD:main && exit 0; sleep 20; done
+          exit 1
