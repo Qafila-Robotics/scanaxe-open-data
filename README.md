@@ -8,7 +8,11 @@ import them with a basis other than `connected`; ScanAxe's strict compliance def
 | File | Source | Licence |
 |---|---|---|
 | `data/world/<CC>.tsv.gz` (`GCC` holds AE, SA, QA, KW, BH and OM) | OpenStreetMap extracts from Geofabrik | © OpenStreetMap contributors, [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/) |
+| `data/new/<CC>.tsv.gz` | Places the latest run found that the run before it did not have (matched by `@id`; on the first run, places first mapped in the last 90 days) | © OpenStreetMap contributors, ODbL 1.0 |
 | `data/wikidata/world-companies.csv.gz` | Wikidata Query Service | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+
+Each OpenStreetMap row ends with `@id`, `@version` and `@timestamp` (the object's last edit, UTC). A newly mapped
+place is not always a newly opened one: mapping can come later than the opening.
 
 The OpenStreetMap files are a derived database under the ODbL. Keep the credit
 "© OpenStreetMap contributors" with any copy, and share any changed version under the same licence.

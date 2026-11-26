@@ -4,6 +4,8 @@ Usage: python osm_extract.py <file.osm.pbf> <ISO|AUTO> <out.tsv>
 With AUTO (a file that covers several countries, such as Geofabrik's GCC states), each place's country is
 taken from its location with the offline reverse_geocoder package; the location itself is never written.
 Only kind tags, names and websites are written: no phones, emails, addresses or coordinates.
+Each row ends with the object's id (`@id`, e.g. n123), `@version` and `@timestamp` (its last edit, UTC): a
+version-1 object is a place first mapped at that time, and two runs compared by `@id` show places added since.
 Data © OpenStreetMap contributors, ODbL 1.0.
 """
 import re
@@ -13,6 +15,7 @@ import osmium
 
 COLS = ["brand:wikidata", "brand", "operator", "name", "website", "contact:website", "brand:website",
         "amenity", "shop", "leisure", "tourism", "office", "healthcare", "craft", "industrial"]
+META = ["@id", "@version", "@timestamp"]
 AMENITY = re.compile(r"^(restaurant|fast_food|cafe|food_court|ice_cream|bar|pub|clinic|hospital|"
                      r"pharmacy|school|college|university|kindergarten|bank|car_rental|fuel)$")
 LEISURE = re.compile(r"^(fitness_centre|sports_centre|sports_hall|stadium|water_park|ice_rink|bowling_alley|"
@@ -51,14 +54,16 @@ class Handler(osmium.SimpleHandler):
         super().__init__()
         self.auto, self.rows, self.points = auto, [], []
 
-    def write(self, kind, tags, point):
+    def write(self, kind, obj, point):
+        tags = obj.tags
         if keep(tags) and (point or not self.auto):
-            self.rows.append("\t".join([kind, "%s"] + [clean(tags.get(c)) for c in COLS]))
+            meta = [f"{kind[0]}{obj.id}", str(obj.version), obj.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")]
+            self.rows.append("\t".join([kind, "%s"] + [clean(tags.get(c)) for c in COLS] + meta))
             self.points.append(point)
 
     def node(self, n):
         if len(n.tags):
-            self.write("node", n.tags, (n.location.lat, n.location.lon) if self.auto and n.location.valid() else None)
+            self.write("node", n, (n.location.lat, n.location.lon) if self.auto and n.location.valid() else None)
 
     def way(self, w):
         if len(w.tags):
@@ -68,11 +73,11 @@ class Handler(osmium.SimpleHandler):
                     if nd.location.valid():
                         point = (nd.location.lat, nd.location.lon)
                         break
-            self.write("way", w.tags, point)
+            self.write("way", w, point)
 
     def relation(self, r):
         if len(r.tags) and not self.auto:
-            self.write("relation", r.tags, None)
+            self.write("relation", r, None)
 
 
 def main(pbf, iso, path):
@@ -88,9 +93,9 @@ def main(pbf, iso, path):
     else:
         groups[iso] = h.rows
     with open(path, "w", encoding="utf-8") as out:
-        out.write("\t".join(["@type", "ISO3166-1"] + COLS) + "\n")
+        out.write("\t".join(["@type", "ISO3166-1"] + COLS + META) + "\n")
         for cc, rows in sorted(groups.items()):
-            out.write("\t".join(["area", cc] + [""] * len(COLS)) + "\n")
+            out.write("\t".join(["area", cc] + [""] * (len(COLS) + len(META))) + "\n")
             for row in rows:
                 out.write(row.replace("%s", "", 1) + "\n")
             print(f"{cc}: {len(rows)} places")

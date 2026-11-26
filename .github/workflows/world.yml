@@ -93,8 +93,13 @@ jobs:
           path: art
       - name: Commit
         run: |
-          mkdir -p data/world data/wikidata
-          for f in art/osm-*/*.tsv.gz; do [ -e "$f" ] && cp "$f" data/world/; done
+          mkdir -p data/world data/wikidata data/new
+          for f in art/osm-*/*.tsv.gz; do
+            [ -e "$f" ] || continue
+            cc=$(basename "$f" .tsv.gz); prev=data/world/$cc.tsv.gz; [ -e "$prev" ] || prev=-
+            python3 scripts/new_places.py "$prev" "$f" data/new/$cc.tsv.gz 90
+            cp "$f" data/world/
+          done
           [ -e art/wikidata/companies.csv.gz ] && cp art/wikidata/companies.csv.gz data/wikidata/world-companies.csv.gz
           ls -lh data/world data/wikidata
           git config user.name "scanaxe-data"; git config user.email "data@users.noreply.github.com"
