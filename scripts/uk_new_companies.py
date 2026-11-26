@@ -1,6 +1,6 @@
 """New UK companies from the Companies House free company data product (monthly snapshot).
 
-Usage: uk_new_companies.py <BasicCompanyData.csv> <out.tsv.gz> <snapshot YYYY-MM-DD> [days]
+Usage: uk_new_companies.py <BasicCompanyData.csv> <out.csv.gz> <snapshot YYYY-MM-DD> [days]
 
 Keeps active companies incorporated in the `days` (default 45) before the snapshot day. Columns: number, name,
 category, incorporated_on, SIC codes and the post town. No street address, postcode, officer or person.
@@ -30,14 +30,15 @@ def row_of(r):
 def main(src, out, snapshot, days=45):
     since = date.fromisoformat(snapshot) - timedelta(days=int(days))
     kept = 0
-    with open(src, newline="", encoding="utf-8-sig", errors="replace") as f, gzip.open(out, "wt", encoding="utf-8") as o:
+    with open(src, newline="", encoding="utf-8-sig", errors="replace") as f, gzip.open(out, "wt", encoding="utf-8", newline="") as o:
         reader = csv.DictReader(f)
         reader.fieldnames = [h.strip() for h in reader.fieldnames]
-        o.write("\t".join(OUT) + "\n")
+        writer = csv.writer(o)
+        writer.writerow(OUT)
         for r in reader:
             hit = row_of(r)
             if hit and hit[0] >= since:
-                o.write("\t".join(v.replace("\t", " ") for v in hit[1]) + "\n")
+                writer.writerow(hit[1])
                 kept += 1
     print(f"GB: {kept} new companies since {since}")
 

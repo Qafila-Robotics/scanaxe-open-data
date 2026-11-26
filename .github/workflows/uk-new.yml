@@ -21,7 +21,7 @@ jobs:
           echo "DAY=$(echo "$file" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')" >> "$GITHUB_ENV"
           curl -sSfL --retry 6 --retry-delay 60 --retry-all-errors -A "$ua" -o /tmp/ch.zip "https://download.companieshouse.gov.uk/$file"
           unzip -o -q /tmp/ch.zip -d /tmp/ch && ls -lh /tmp/ch
-      - run: mkdir -p data/new-companies && python3 scripts/uk_new_companies.py /tmp/ch/*.csv data/new-companies/GB.tsv.gz "$DAY"
+      - run: mkdir -p data/new-companies && python3 scripts/uk_new_companies.py /tmp/ch/*.csv data/new-companies/GB.csv.gz "$DAY"
       - name: Commit
         run: |
           git config user.name "Hassan Najjar"; git config user.email "$(git log -1 --format=%ae)"
