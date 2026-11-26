@@ -61,7 +61,7 @@ jobs:
       - name: One query per country
         run: |
           mkdir -p out
-          for cc in QA AE SA KW BH OM $(cut -f1 countries.tsv | grep -v GCC); do
+          for cc in QA AE SA KW BH OM $(cut -f1 countries.tsv | grep -vE "^(GCC|IR|CU)$"); do
             sed "s/__CC__/$cc/" queries/wikidata-country.sparql > /tmp/q.sparql
             ok=0
             for ep in https://qlever.dev/api/wikidata https://query.wikidata.org/sparql https://query.wikidata.org/sparql; do wait=30;

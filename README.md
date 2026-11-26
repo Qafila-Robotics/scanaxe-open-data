@@ -17,6 +17,10 @@ place is not always a newly opened one: mapping can come later than the opening.
 The OpenStreetMap files are a derived database under the ODbL. Keep the credit
 "© OpenStreetMap contributors" with any copy, and share any changed version under the same licence.
 
+## Excluded countries
+Iran (IR) and Cuba (CU) are not published, for sanctions: they are left out of `countries.tsv`, the
+Wikidata queries, and any multi-country extract (`scripts/osm_extract.py`, `EXCLUDED`).
+
 ## Refresh
 
 Actions → **world** → Run workflow (optionally `only` with a few codes from `countries.tsv`). Each country's

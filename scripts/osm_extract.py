@@ -80,7 +80,13 @@ class Handler(osmium.SimpleHandler):
             self.write("relation", r, None)
 
 
+# Not published, for sanctions: places that fall in these countries are dropped, whatever the extract.
+EXCLUDED = {"IR", "CU"}
+
+
 def main(pbf, iso, path):
+    if iso in EXCLUDED:
+        raise SystemExit(f"{iso} is excluded")
     auto = iso == "AUTO"
     h = Handler(auto)
     h.apply_file(pbf, locations=auto)
@@ -95,6 +101,9 @@ def main(pbf, iso, path):
     with open(path, "w", encoding="utf-8") as out:
         out.write("\t".join(["@type", "ISO3166-1"] + COLS + META) + "\n")
         for cc, rows in sorted(groups.items()):
+            if cc in EXCLUDED:
+                print(f"{cc}: {len(rows)} places dropped (excluded)")
+                continue
             out.write("\t".join(["area", cc] + [""] * (len(COLS) + len(META))) + "\n")
             for row in rows:
                 out.write(row.replace("%s", "", 1) + "\n")
