@@ -1,0 +1,30 @@
+name: uk-new
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 8 * *"
+permissions:
+  contents: write
+concurrency: uk-new
+jobs:
+  companies-house:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the latest monthly snapshot
+        run: |
+          for m in 0 1; do
+            day=$(date -u -d "$(date -u +%Y-%m-01) -$m month" +%Y-%m-01)
+            url="https://download.companieshouse.gov.uk/BasicCompanyDataAsOneFile-$day.zip"
+            if curl -sSfL --retry 6 --retry-delay 60 --retry-all-errors -A "ScanAxe-open-data (github.com/Qafila-Robotics/scanaxe-open-data)" -o /tmp/ch.zip "$url"; then
+              echo "DAY=$day" >> "$GITHUB_ENV"; break
+            fi
+          done
+          test -s /tmp/ch.zip && unzip -o -q /tmp/ch.zip -d /tmp/ch && ls -lh /tmp/ch
+      - run: mkdir -p data/new-companies && python3 scripts/uk_new_companies.py /tmp/ch/*.csv data/new-companies/GB.tsv.gz "$DAY"
+      - name: Commit
+        run: |
+          git config user.name "Hassan Najjar"; git config user.email "$(git log -1 --format=%ae)"
+          git add data/new-companies && git commit -qm "New UK companies from the Companies House snapshot of $DAY" || exit 0
+          for i in 1 2 3 4 5; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 20; done
